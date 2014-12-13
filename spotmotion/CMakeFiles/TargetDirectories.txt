@@ -1,0 +1,1 @@
+/media/data/c/spotmotion/CMakeFiles/spotmotion.dir

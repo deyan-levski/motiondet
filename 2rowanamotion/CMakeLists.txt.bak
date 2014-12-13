@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 2.8)
+project( anamotion )
+find_package( OpenCV REQUIRED )
+add_executable( anamotion anamotion.cpp )
+target_link_libraries( anamotion ${OpenCV_LIBS} )
+

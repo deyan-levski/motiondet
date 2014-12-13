@@ -1,0 +1,119 @@
+//  |---------------------------------------------------------------|
+//  | Analog frame difference model for motion detection based on   |
+//  | an N-spot motion detection.                                   |
+//  |---------------------------------------------------------------|
+//  | Version P1A, Deyan Levski deyan.levski@gmail.com, 26 Oct 2014 |
+//  |---------------------------------------------------------------|
+
+#define ABSDIFF 0
+#define IMGTH 0
+
+#include "cv.h"
+#include "highgui.h"
+#include <stdio.h>
+#include <ctype.h>
+
+IplImage *image = 0, *frameTime1=0, *frameTime2=0, *frameForeground=0, *img1=0, *img2=0;
+
+int main( int argc, char** argv )
+{
+    printf("Terminate with ESC.\n");
+    CvCapture* capture = 0;   		      //Video capturing structure
+    capture = cvCreateCameraCapture( -1 );    //Initializes capturing a video from a camera   
+    cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_WIDTH, 640);  // width of viewport of camera
+    cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_HEIGHT, 480); // height of ...
+
+    if( !capture )
+    {
+        fprintf(stderr,"Camera could not be initialized...\n");
+        return -1;
+    }
+    cvNamedWindow( "Camera", 1 );  	      //create the window for the Camera Output (Directly)
+    while(1)
+    {
+        IplImage* frame = 0;  		      //every time create/initialize an image (which name is frame) to process
+        int  c;              		      //integer to exit program
+        frame = cvQueryFrame( capture );      //grabs and returns a frame from a camera input
+       
+        if( !frame )    //if there is no frame exit the while(1)
+            break;
+        if( !image )    //if there is no image, do the following
+        {
+            /* allocate all the buffers */
+            image = cvCreateImage( cvGetSize(frame), 8, 3 ); 
+            frameTime1 = cvCreateImage( cvGetSize(frame), 8, 1 );
+            frameTime2 = cvCreateImage( cvGetSize(frame), 8, 1 );  
+            frameForeground = cvCreateImage( cvGetSize(frame), 8, 1 );
+            img1 = cvCreateImage( cvGetSize(frame), 8, 1 );  
+            img2 = cvCreateImage( cvGetSize(frame), 8, 1 );
+        }
+        cvCopy( frame, image, 0 );  
+        cvCvtColor( image, img1, CV_BGR2GRAY ); 
+        cvCopy( img1, frameTime1, 0 );    //currently frame in grayscale
+
+	#if IMGTH == 1
+
+        cvThreshold(
+                frameForeground,
+                frameForeground,
+                20,  //Threshold
+                255, //Saturate up to 255
+                CV_THRESH_BINARY);
+                 //CV_THRESH_BINARY_INV);
+	         //CV_THRESH_TRUNC);
+	         //CV_THRESH_TOZERO);
+	         //CV_THRESH_TOZERO_INV);
+	        
+	cvShowImage( "AbsDiffThreshold", frameForeground);  //AbsDiffThreshold window
+         
+	#endif
+	         
+	uchar T1sig1, T2sig1, T1sig2, T2sig2, T1sig3, T2sig3, T1sig4, T2sig4, T1center, T2center;
+	uchar ev1, ev2, ev3, ev4, evc;
+	unsigned int totalsum = 0;
+
+	   T1sig1 = CV_IMAGE_ELEM( frameTime1, uchar, 10, 10 );
+	   T1sig2 = CV_IMAGE_ELEM( frameTime1, uchar, 470 , 630 );
+	   T1sig3 = CV_IMAGE_ELEM( frameTime1, uchar, 10, 630 );
+	   T1sig4 = CV_IMAGE_ELEM( frameTime1, uchar, 470, 10 );
+	   T1center = CV_IMAGE_ELEM( frameTime1, uchar, 240, 320);
+
+	   T2sig1 = CV_IMAGE_ELEM( frameTime2, uchar, 10, 10 );
+	   T2sig2 = CV_IMAGE_ELEM( frameTime2, uchar, 470 , 630 );
+	   T2sig3 = CV_IMAGE_ELEM( frameTime2, uchar, 10, 630 );
+	   T2sig4 = CV_IMAGE_ELEM( frameTime2, uchar, 470, 10 );
+	   T2center = CV_IMAGE_ELEM( frameTime2, uchar, 240, 320);
+
+	ev1 = abs(T1sig1 - T2sig1);
+	ev2 = abs(T1sig2 - T2sig2);
+	ev3 = abs(T1sig3 - T2sig3);
+	ev4 = abs(T1sig4 - T2sig4);
+	evc = abs(T1center - T2center);
+
+	totalsum = ev1+ev2+ev3+ev4+evc;
+
+	printf("Totalsum: %20d \n", totalsum);
+
+	if (totalsum >= 50) // Motion detection threshold
+	{ 
+             cvRectangle(image,cvPoint(40,40), cvPoint(600, 440),cvScalar(0, 255, 0, 0),1,8,0); // Draw a green rectangle
+             cvCircle(image,cvPoint(500,150),1,CV_RGB(0,255,0),-1);
+	}
+
+        cvShowImage( "Camera", image );  //Display the original image w/wo added green rectangle
+
+        cvCopy( frameTime1, frameTime2, 0 );
+
+        c = cvWaitKey(10);    		 //waits for a pressed key
+        if( (char) c == 27 ) 		 //if key==ESC (27 ESC button) then break
+            break;
+    }
+    cvReleaseCapture( &capture );  	 //Releases the CvCapture structure
+    cvDestroyWindow("Camera");
+    cvDestroyWindow("AbsDiffThresholdDilate");
+    cvDestroyWindow("AbsDiffThresholdErode");
+    cvDestroyWindow("AbsDiffThreshold");
+    cvDestroyWindow("AbsDiff");
+
+    return 0;
+}
